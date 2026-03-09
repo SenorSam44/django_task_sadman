@@ -1,0 +1,64 @@
+# Updated docker-compose.yml
+services:
+  django:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "pdm install && pdm run python manage.py migrate && pdm run python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/booking_sync  # Changed to 'postgres://' for consistency with common Django configs
+      CELERY_BROKER_URL: redis://redis:6379/0  # Renamed to match common Celery env var (update settings.py if needed)
+      DJANGO_SECRET_KEY: your-secret-key-here  # Added placeholder for security (generate a real one)
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "pdm install && pdm run celery -A config worker -l info"  # Assuming project module is 'config'
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/booking_sync
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "pdm install && pdm run celery -A config beat -l info"
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/booking_sync
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: booking_sync
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
