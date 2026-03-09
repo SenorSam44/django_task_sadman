@@ -17,28 +17,31 @@ def retry_on_failure(exception):
 def sync_booking_system_task(self, booking_system_id: int) -> Dict:
     try:
         bs = BookingSystem.objects.get(id=booking_system_id)
-        bs.sync_status = 'in_progress'
+        bs.sync_status = "in_progress"
         bs.save()
         handler = DataSyncHandler(bs)
         summary = handler.sync_all()
         bs.last_synced_at = timezone.now()
-        bs.sync_status = 'ok'
+        bs.sync_status = "ok"
         bs.save()
         return summary
     except Exception as e:
-        bs.sync_status = f'error: {str(e)}'
+        bs.sync_status = f"error: {str(e)}"
         bs.save()
-        self.retry(exc=e, countdown=60 * 2 ** self.request.retries)  # Exponential
+        self.retry(exc=e, countdown=60 * 2**self.request.retries)  # Exponential
+
 
 @shared_task
 def sync_providers_task(booking_system_id: int) -> int:
     bs = BookingSystem.objects.get(id=booking_system_id)
     return DataSyncHandler(bs).sync_providers()
 
+
 @shared_task
 def sync_appointments_task(booking_system_id: int) -> int:
     bs = BookingSystem.objects.get(id=booking_system_id)
     return DataSyncHandler(bs).sync_appointments()
+
 
 @shared_task
 def sync_active_booking_systems() -> Dict:

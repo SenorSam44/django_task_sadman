@@ -5,7 +5,10 @@ from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-kucfuv^)_3h^oy&vyh)a-ezqn8!h4qy7i39l9k20oxkv&8+iu$")
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-kucfuv^)_3h^oy&vyh)a-ezqn8!h4qy7i39l9k20oxkv&8+iu$",
+)
 
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
@@ -58,21 +61,27 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/booking_sync")
+        default=os.getenv(
+            "DATABASE_URL", "postgres://postgres:postgres@localhost:5432/booking_sync"
+        )
     )
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "America/New_York"  # UPDATED: Matches seed data timezone (e.g., working plans)
+TIME_ZONE = (
+    "America/New_York"  # UPDATED: Matches seed data timezone (e.g., working plans)
+)
 USE_I18N = True
 USE_TZ = True
 

@@ -28,4 +28,3 @@ def envelope_exception_handler(exc, context):
     }
 
     return response
-

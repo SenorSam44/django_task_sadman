@@ -8,16 +8,17 @@ from .client import BookingSystemClient
 
 logger = logging.getLogger(__name__)
 
+
 class DataSyncHandler:
     def __init__(self, booking_system: BookingSystem):
         self.booking_system = booking_system
         self.client = BookingSystemClient(
             booking_system.base_url,
-            booking_system.credentials.get('username', ''),
-            booking_system.credentials.get('password', ''),
+            booking_system.credentials.get("username", ""),
+            booking_system.credentials.get("password", ""),
         )
 
-    def _coerce_null(self, value: Any, default: Any = '') -> Any:
+    def _coerce_null(self, value: Any, default: Any = "") -> Any:
         return value if value is not None else default
 
     @transaction.atomic
@@ -28,14 +29,19 @@ class DataSyncHandler:
             try:
                 Provider.objects.update_or_create(
                     booking_system=self.booking_system,
-                    external_id=item['id'],
+                    external_id=item["id"],
                     defaults={
-                        'first_name': self._coerce_null(item.get('firstName')),
-                        'last_name': self._coerce_null(item.get('lastName')),
-                        'email': self._coerce_null(item.get('email')),
-                        'phone': self._coerce_null(item.get('phone')),
-                        'extra_data': {k: v for k, v in item.items() if k not in ['id', 'firstName', 'lastName', 'email', 'phone']},
-                    }
+                        "first_name": self._coerce_null(item.get("firstName")),
+                        "last_name": self._coerce_null(item.get("lastName")),
+                        "email": self._coerce_null(item.get("email")),
+                        "phone": self._coerce_null(item.get("phone")),
+                        "extra_data": {
+                            k: v
+                            for k, v in item.items()
+                            if k
+                            not in ["id", "firstName", "lastName", "email", "phone"]
+                        },
+                    },
                 )
                 count += 1
             except IntegrityError as e:
@@ -44,9 +50,8 @@ class DataSyncHandler:
 
     # Placeholder for sync_all (expand later)
     def sync_all(self) -> Dict[str, int]:
-        summary = {'providers': self.sync_providers()}
+        summary = {"providers": self.sync_providers()}
         self.booking_system.last_synced_at = timezone.now()
-        self.booking_system.sync_status = 'ok'
+        self.booking_system.sync_status = "ok"
         self.booking_system.save()
         return summary
-    

@@ -8,10 +8,6 @@ class EnvelopeJSONRenderer(JSONRenderer):
         if response.exception:
             return super().render(data, accepted_media_type, renderer_context)
 
-        envelope = {
-            "data": data,
-            "errors": [],
-            "meta": None
-        }
+        envelope = {"data": data, "errors": [], "meta": None}
 
         return super().render(envelope, accepted_media_type, renderer_context)
