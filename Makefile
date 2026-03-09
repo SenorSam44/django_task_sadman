@@ -21,5 +21,8 @@ makemigrations:
 createsuperuser:
 	$(COMPOSE) exec django pdm run python manage.py createsuperuser
 
-runserver:
-	$(COMPOSE) exec django pdm run python manage.py runserver 0.0.0.0:8000
+test:
+	$(COMPOSE) exec django pdm run pytest -v
+
+report:
+	$(COMPOSE) exec django pdm run python manage.py generate_report --booking_system_id=$(id) --start_date=$(start) --end_date=$(end)

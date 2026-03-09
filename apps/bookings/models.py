@@ -1,7 +1,5 @@
 from django.db import models
 
-# from django.utils.translation import gettext_lazy as _
-
 
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -16,7 +14,7 @@ class BookingSystem(TimestampedModel):
     base_url = models.URLField()
     credentials = models.JSONField(
         default=dict
-    )  # e.g., {"username": "admin", "password": "admin123"}
+    )  # {"username": "...", "password": "..."}
     last_synced_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     sync_status = models.CharField(max_length=50, default="ok")
@@ -34,9 +32,7 @@ class Provider(TimestampedModel):
     email = models.EmailField()
     phone = models.CharField(max_length=50, blank=True)
     external_id = models.CharField(max_length=255)
-    extra_data = models.JSONField(
-        default=dict
-    )  # For additional API fields like timezone, settings
+    extra_data = models.JSONField(default=dict)
 
     class Meta:
         constraints = [
@@ -50,9 +46,6 @@ class Provider(TimestampedModel):
         return f"{self.first_name} {self.last_name}"
 
 
-# ... (existing TimestampedModel, BookingSystem, Provider)
-
-
 class Customer(TimestampedModel):
     booking_system = models.ForeignKey(
         BookingSystem, on_delete=models.CASCADE, related_name="customers"
@@ -62,9 +55,7 @@ class Customer(TimestampedModel):
     email = models.EmailField()
     phone = models.CharField(max_length=50, blank=True)
     external_id = models.CharField(max_length=255)
-    extra_data = models.JSONField(
-        default=dict
-    )  # For additional API fields like timezone, language
+    extra_data = models.JSONField(default=dict)
 
     class Meta:
         constraints = [
@@ -87,9 +78,7 @@ class Service(TimestampedModel):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3)
     external_id = models.CharField(max_length=255)
-    extra_data = models.JSONField(
-        default=dict
-    )  # For fields like attendantsNumber, availabilitiesType
+    extra_data = models.JSONField(default=dict)
 
     class Meta:
         constraints = [
@@ -109,7 +98,7 @@ class Appointment(TimestampedModel):
     )
     provider = models.ForeignKey(
         Provider, null=True, on_delete=models.SET_NULL, related_name="appointments"
-    )  # SET_NULL to preserve if provider deleted
+    )
     customer = models.ForeignKey(
         Customer, null=True, on_delete=models.SET_NULL, related_name="appointments"
     )
@@ -118,12 +107,10 @@ class Appointment(TimestampedModel):
     )
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    status = models.CharField(
-        max_length=50, default="confirmed"
-    )  # Assume 'confirmed'; API may not provide, or map from data
+    status = models.CharField(max_length=50, default="confirmed")
     location = models.CharField(max_length=255, blank=True)
     external_id = models.CharField(max_length=255)
-    extra_data = models.JSONField(default=dict)  # For fields like notes, hash
+    extra_data = models.JSONField(default=dict)
 
     class Meta:
         constraints = [
@@ -132,7 +119,7 @@ class Appointment(TimestampedModel):
                 name="unique_appointment_external_id",
             )
         ]
-        indexes = [  # For performance on reports/analytics (date ranges, groupings)
+        indexes = [
             models.Index(fields=["start_time"], name="appt_start_idx"),
             models.Index(fields=["provider"], name="appt_provider_idx"),
             models.Index(fields=["service"], name="appt_service_idx"),

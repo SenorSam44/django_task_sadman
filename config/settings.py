@@ -1,7 +1,8 @@
 from pathlib import Path
-import dj_database_url
 import os
+
 from celery.schedules import crontab
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -79,23 +80,21 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = (
-    "America/New_York"  # UPDATED: Matches seed data timezone (e.g., working plans)
-)
+TIME_ZONE = "America/New_York"
 USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
 
-# ─── Security Additions (for assignment's security patterns) ──────────────────
-SECURE_CONTENT_TYPE_NOSNIFF = True  # NEW: Basic security header
-SECURE_SSL_REDIRECT = not DEBUG  # NEW: Redirect to HTTPS in prod
+# ── Security ─────────────────────────────────────────────────────────────────
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_SSL_REDIRECT = not DEBUG
 if not DEBUG:
-    SECURE_HSTS_SECONDS = 31536000  # NEW: HSTS for 1 year
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-# ─── Django REST Framework ───────────────────────────────────────────────────
+# ── Django REST Framework ─────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "apps.integrations.pagination.EnvelopePagination",
     "PAGE_SIZE": 20,
@@ -105,31 +104,32 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.integrations.exceptions.envelope_exception_handler",
 }
 
-# ─── Celery ──────────────────────────────────────────────────────────────────
+# ── Celery ────────────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE  # UPDATED: Sync with Django timezone
+CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 CELERY_BEAT_SCHEDULE = {
     "sync-all-active-booking-systems": {
-        "task": "apps.integrations.tasks.sync_all_active_booking_systems",
+        # FIX: name must match the actual function defined in tasks.py
+        "task": "apps.integrations.tasks.sync_active_booking_systems",
         "schedule": crontab(minute=0, hour="*/6"),
     },
 }
 
-# ─── Caching (for performance, e.g., API responses or sync temp data) ─────────
-CACHES = {  # NEW: Use Redis for caching (bonus for performance patterns)
+# ── Caching ───────────────────────────────────────────────────────────────────
+CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": CELERY_BROKER_URL,
     }
 }
 
-# ─── Logging ─────────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

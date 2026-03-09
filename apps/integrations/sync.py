@@ -1,16 +1,17 @@
-from typing import Dict, Any
-from django.db import transaction, IntegrityError
-from django.utils import timezone
 import logging
+from typing import Any, Dict
 
-from apps.bookings.models import BookingSystem, Provider, Customer, Appointment, Service
+from django.db import transaction
+from django.utils import timezone
+
+from apps.bookings.models import Appointment, BookingSystem, Customer, Provider, Service
 from .client import BookingSystemClient
 
 logger = logging.getLogger(__name__)
 
 
 class DataSyncHandler:
-    def __init__(self, booking_system: BookingSystem):
+    def __init__(self, booking_system: BookingSystem) -> None:
         self.booking_system = booking_system
         self.client = BookingSystemClient(
             booking_system.base_url,
@@ -19,134 +20,165 @@ class DataSyncHandler:
         )
 
     def _coerce_null(self, value: Any, default: Any = "") -> Any:
+        """Coerce None to a safe default to avoid DB constraint violations."""
         return value if value is not None else default
 
-    def sync_all(self) -> dict:
-        summary = {}
+    def _extra_data(self, item: Dict, exclude_keys: list) -> Dict:
+        """Extract remaining fields into extra_data."""
+        return {k: v for k, v in item.items() if k not in exclude_keys}
 
+    def sync_all(self) -> Dict[str, int]:
+        """Run full sync in dependency order. Returns per-entity counts."""
+        summary: Dict[str, int] = {}
         summary["providers"] = self.sync_providers()
         summary["customers"] = self.sync_customers()
         summary["services"] = self.sync_services()
         summary["appointments"] = self.sync_appointments()
-
         return summary
 
-    @transaction.atomic
     def sync_providers(self) -> int:
+        """
+        Sync providers with per-record transaction safety.
+        Each record is wrapped individually so one failure never rolls back others.
+        """
         data = self.client.get_providers()
         count = 0
         for item in data:
             try:
-                Provider.objects.update_or_create(
-                    booking_system=self.booking_system,
-                    external_id=item["id"],
-                    defaults={
-                        "first_name": self._coerce_null(item.get("firstName")),
-                        "last_name": self._coerce_null(item.get("lastName")),
-                        "email": self._coerce_null(item.get("email")),
-                        "phone": self._coerce_null(item.get("phone")),
-                        "extra_data": {
-                            k: v
-                            for k, v in item.items()
-                            if k
-                            not in ["id", "firstName", "lastName", "email", "phone"]
+                with transaction.atomic():
+                    Provider.objects.update_or_create(
+                        booking_system=self.booking_system,
+                        external_id=str(item["id"]),
+                        defaults={
+                            "first_name": self._coerce_null(item.get("firstName")),
+                            "last_name": self._coerce_null(item.get("lastName")),
+                            "email": self._coerce_null(item.get("email")),
+                            "phone": self._coerce_null(item.get("phone")),
+                            "extra_data": self._extra_data(
+                                item, ["id", "firstName", "lastName", "email", "phone"]
+                            ),
                         },
-                    },
-                )
-                count += 1
-            except IntegrityError as e:
-                logger.warning(f"Failed to sync provider {item['id']}: {e}")
+                    )
+                    count += 1
+            except Exception:
+                logger.exception("Failed to sync provider %s", item.get("id"))
         return count
 
-    @transaction.atomic
     def sync_customers(self) -> int:
-        customers = self.client.get_customers()
+        """Sync customers with per-record transaction safety."""
+        data = self.client.get_customers()
         count = 0
-
-        for c in customers:
+        for item in data:
             try:
-                Customer.objects.update_or_create(
-                    booking_system=self.booking_system,
-                    external_id=str(c["id"]),
-                    defaults={
-                        "first_name": c.get("firstName") or "",
-                        "last_name": c.get("lastName") or "",
-                        "email": c.get("email") or "",
-                        "phone": c.get("phone") or "",
-                    },
-                )
-                count += 1
+                with transaction.atomic():
+                    Customer.objects.update_or_create(
+                        booking_system=self.booking_system,
+                        external_id=str(item["id"]),
+                        defaults={
+                            "first_name": self._coerce_null(item.get("firstName")),
+                            "last_name": self._coerce_null(item.get("lastName")),
+                            "email": self._coerce_null(item.get("email")),
+                            "phone": self._coerce_null(item.get("phone")),
+                            "extra_data": self._extra_data(
+                                item, ["id", "firstName", "lastName", "email", "phone"]
+                            ),
+                        },
+                    )
+                    count += 1
             except Exception:
-                logger.exception("Failed syncing customer %s", c.get("id"))
-
+                logger.exception("Failed to sync customer %s", item.get("id"))
         return count
 
-    @transaction.atomic
     def sync_services(self) -> int:
-        services = self.client.get_services()
+        """Sync services with per-record transaction safety."""
+        data = self.client.get_services()
         count = 0
-
-        for s in services:
+        for item in data:
             try:
-                Service.objects.update_or_create(
-                    booking_system=self.booking_system,
-                    external_id=str(s["id"]),
-                    defaults={
-                        "name": s.get("name") or "",
-                        "duration": s.get("duration") or 0,
-                        "price": s.get("price") or 0,
-                    },
-                )
-                count += 1
+                with transaction.atomic():
+                    Service.objects.update_or_create(
+                        booking_system=self.booking_system,
+                        external_id=str(item["id"]),
+                        defaults={
+                            "name": self._coerce_null(item.get("name")),
+                            # FIX: correct field name is duration_minutes, API field is duration
+                            "duration_minutes": self._coerce_null(
+                                item.get("duration"), 0
+                            ),
+                            "price": self._coerce_null(item.get("price"), 0),
+                            "currency": self._coerce_null(item.get("currency"), "USD"),
+                            "extra_data": self._extra_data(
+                                item, ["id", "name", "duration", "price", "currency"]
+                            ),
+                        },
+                    )
+                    count += 1
             except Exception:
-                logger.exception("Failed syncing service %s", s.get("id"))
-
+                logger.exception("Failed to sync service %s", item.get("id"))
         return count
 
-    @transaction.atomic
     def sync_appointments(self) -> int:
-        appointments = self.client.get_appointments()
+        """
+        Sync appointments with per-record transaction safety.
+        Skips any appointment whose provider, customer, or service isn't locally present.
+        """
+        data = self.client.get_appointments()
         count = 0
-
-        for a in appointments:
+        for item in data:
             try:
                 provider = Provider.objects.filter(
                     booking_system=self.booking_system,
-                    external_id=str(a.get("providerId")),
+                    external_id=str(item.get("providerId")),
                 ).first()
-
                 customer = Customer.objects.filter(
                     booking_system=self.booking_system,
-                    external_id=str(a.get("customerId")),
+                    external_id=str(item.get("customerId")),
                 ).first()
-
                 service = Service.objects.filter(
                     booking_system=self.booking_system,
-                    external_id=str(a.get("serviceId")),
+                    external_id=str(item.get("serviceId")),
                 ).first()
 
                 if not (provider and customer and service):
                     logger.warning(
-                        "Skipping appointment %s due to missing relations",
-                        a.get("id"),
+                        "Skipping appointment %s — missing provider=%s customer=%s service=%s",
+                        item.get("id"),
+                        provider,
+                        customer,
+                        service,
                     )
                     continue
 
-                Appointment.objects.update_or_create(
-                    booking_system=self.booking_system,
-                    external_id=str(a["id"]),
-                    defaults={
-                        "provider": provider,
-                        "customer": customer,
-                        "service": service,
-                        "start_time": a.get("start"),
-                        "end_time": a.get("end"),
-                    },
-                )
-
-                count += 1
-
+                with transaction.atomic():
+                    Appointment.objects.update_or_create(
+                        booking_system=self.booking_system,
+                        external_id=str(item["id"]),
+                        defaults={
+                            "provider": provider,
+                            "customer": customer,
+                            "service": service,
+                            "start_time": item.get("start"),
+                            "end_time": item.get("end"),
+                            "location": self._coerce_null(item.get("location")),
+                            "status": self._coerce_null(
+                                item.get("status"), "confirmed"
+                            ),
+                            "extra_data": self._extra_data(
+                                item,
+                                [
+                                    "id",
+                                    "providerId",
+                                    "customerId",
+                                    "serviceId",
+                                    "start",
+                                    "end",
+                                    "location",
+                                    "status",
+                                ],
+                            ),
+                        },
+                    )
+                    count += 1
             except Exception:
-                logger.exception("Failed syncing appointment %s", a.get("id"))
-
+                logger.exception("Failed to sync appointment %s", item.get("id"))
         return count

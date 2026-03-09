@@ -6,12 +6,7 @@ class ConnectSerializer(serializers.Serializer):
     name = serializers.CharField(required=True, max_length=255)
     base_url = serializers.URLField(required=True)
     username = serializers.CharField(required=True)
-    password = serializers.CharField(
-        required=True, write_only=True
-    )  # Hide in responses
-
-    def validate(self, data):
-        return data
+    password = serializers.CharField(required=True, write_only=True)
 
 
 class BookingSystemSerializer(serializers.ModelSerializer):
@@ -21,7 +16,7 @@ class BookingSystemSerializer(serializers.ModelSerializer):
 
 
 class ProviderSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()  # Computed full name
+    name = serializers.SerializerMethodField()
 
     def get_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"

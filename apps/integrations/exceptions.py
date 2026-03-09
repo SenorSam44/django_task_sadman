@@ -1,16 +1,12 @@
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
 
 def envelope_exception_handler(exc, context):
     response = exception_handler(exc, context)
-
     if response is None:
         return response
 
     errors = []
-
     if isinstance(response.data, dict):
         for key, value in response.data.items():
             if isinstance(value, list):
@@ -21,10 +17,5 @@ def envelope_exception_handler(exc, context):
     else:
         errors.append({"message": str(response.data)})
 
-    response.data = {
-        "data": None,
-        "errors": errors,
-        "meta": None,
-    }
-
+    response.data = {"data": None, "errors": errors, "meta": None}
     return response

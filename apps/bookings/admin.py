@@ -1,8 +1,6 @@
 from django.contrib import admin
 from .models import BookingSystem, Provider, Customer, Service, Appointment
 
-# Register your models here.
-
 
 @admin.register(BookingSystem)
 class BookingSystemAdmin(admin.ModelAdmin):
